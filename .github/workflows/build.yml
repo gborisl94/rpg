@@ -26,6 +26,9 @@ jobs:
       - name: Ajouter la plateforme Android
         run: cordova platform add android
 
+      - name: Préparer (copie www/ dans platforms)
+        run: cordova prepare android
+
       - name: Build APK debug
         run: cordova build android --debug
 
