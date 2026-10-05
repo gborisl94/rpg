@@ -550,5 +550,57 @@ canvas.addEventListener('touchmove', e => {
       const len = Math.hypot(dx, dy);
       const max = JOYR.r - JOYR.knob;
       if (len > max) { dx = dx / len * max; dy = dy / len * max; }
+      joyR.dx = dx / max; joyR.dy = dy / max;canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (e.touches.length === 2 && pinchStart) {
+    const a = xy(e.touches[0]), b = xy(e.touches[1]);
+    const d = Math.hypot(a.sx - b.sx, a.sy - b.sy);
+    zoomTarget = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, pinchStart.zoom * (d / pinchStart.dist)));
+    return;
+  }
+  for (const t of e.touches) {
+    const p = xy(t);
+    if (joy.active && t.identifier === joy.id) {
+      const jb = joyPos();
+      let dx = p.sx - jb.x, dy = p.sy - jb.y;
+      const len = Math.hypot(dx, dy);
+      const max = JOY.r - JOY.knob;
+      if (len > max) { dx = dx / len * max; dy = dy / len * max; }
+      joy.dx = dx / max; joy.dy = dy / max;
+      continue;
+    }
+    if (joyR.active && t.identifier === joyR.id) {
+      const jb = joyRPos();
+      let dx = p.sx - jb.x, dy = p.sy - jb.y;
+      const len = Math.hypot(dx, dy);
+      const max = JOYR.r - JOYR.knob;
+      if (len > max) { dx = dx / len * max; dy = dy / len * max; }
       joyR.dx = dx / max; joyR.dy = dy / max;
+      continue;
+    }
+    if (t.identifier === tid) { touch = aim = p; }
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchend', e => {
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    if (joy.active && t.identifier === joy.id) { joy.active = false; joy.id = null; joy.dx = 0; joy.dy = 0; }
+    if (joyR.active && t.identifier === joyR.id) { joyR.active = false; joyR.id = null; joyR.dx = 0; joyR.dy = 0; }
+    if (t.identifier === tid) { tid = null; touch = null; firing = false; }
+  }
+  if (e.touches.length < 2) pinchStart = null;
+  const fb = fireBtnPos();
+  let stillFire = false;
+  for (const t of e.touches) { const p = xy(t); if (Math.hypot(p.sx - fb.x, p.sy - fb.y) < FIRE.r * 1.4) stillFire = true; }
+  if (!stillFire) firing = false;
+});
+
+addEventListener('resize', fit);
+fit(); reset();
+(function loop(t){
+  requestAnimationFrame(loop);
+  const dt = Math.min(0.033, (t - last) / 1000 || 0); last = t;
+  update(dt); draw(t);
+})(0);
     
