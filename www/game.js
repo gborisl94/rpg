@@ -1,4 +1,4 @@
-// RPG v4 FINAL - PINCH BLOQUE + BOUTONS +- OK - 0 ERREUR
+// RPG v5 - VISEUR MITRAILLETTE + JOY DROIT = AIM
 const canvas = document.getElementById('c'), ctx = canvas.getContext('2d');
 const ld = s => { const i = new Image(); i.src = s + '?v=' + Date.now(); return i; };
 const player = ld('player.png'), enemies = ld('enemies.png');
@@ -13,10 +13,10 @@ let joy={active:false,id:null,dx:0,dy:0};
 const JOY={r:55,knob:24};
 function joyPos(){return {x:JOY.r+20, y:H-JOY.r-20};}
 let joyR={active:false,id:null,dx:0,dy:0};
-const JOYR={r:45,knob:20};
+const JOYR={r:48,knob:22};
 function joyRPos(){return {x:W-JOYR.r-20, y:H-JOYR.r-20};}
-const FIRE={r:36};
-function fireBtnPos(){return {x:W-JOYR.r-20, y:H-JOYR.r-20-JOYR.r-60};}
+const FIRE={r:34};
+function fireBtnPos(){return {x:W-JOYR.r-20, y:H-JOYR.r-20-JOYR.r-62};}
 
 let zoom=1, zoomTarget=1;
 const ZOOM_MIN=0.5, ZOOM_MAX=1.6;
@@ -37,20 +37,22 @@ function fit(){
  if(P){P.x=Math.min(P.x,W-16); P.y=Math.min(P.y,H-30);}
 }
 function reset(){
- P={x:W/2,y:H/2,hp:100,max:100,cd:0,shoot:0,anim:0,hit:0};
+ P={x:W/2,y:H/2,hp:100,max:100,cd:0,shoot:0,anim:0,hit:0,recoil:0};
  E=[]; A=[]; D=[]; F=[]; T=[];
  arrows=99; fish=0; expl=3; score=0; spawnT=1.2; regenT=0;
  over=false; overT=0; firing=false; tid=null; touch=null; flash=0;
- aim={x:W/2+60,y:H/2};
+ aim={x:W/2+80,y:H/2};
  joy.active=false; joy.id=null; joy.dx=0; joy.dy=0;
  joyR.active=false; joyR.id=null; joyR.dx=0; joyR.dy=0;
 }
 function shoot(explosive){
  if(P.cd>0||over) return;
  if(explosive){if(expl<1) return; expl--;} else {if(arrows<1) return; arrows--;}
- const angle=Math.atan2(aim.y-P.y,aim.x-P.x);
- A.push({x:P.x,y:P.y-4,angle,speed:explosive?400:580,explosive,life:1.5});
- P.cd=explosive?0.5:0.18; P.shoot=0.12;
+ const spread = joyR.active ? 0.08 : 0.02;
+ const angle = Math.atan2(aim.y-P.y, aim.x-P.x) + (R()-0.5)*spread;
+ A.push({x:P.x,y:P.y-4,angle,speed:explosive?420:620,explosive,life:1.5});
+ P.cd=explosive?0.5:0.10; // cadence mitraillette
+ P.shoot=0.12; P.recoil=0.08;
 }
 function text(x,y,s,c){T.push({x,y,s,c,t:1});}
 function explode(x,y){
@@ -75,9 +77,20 @@ function spawn(){
 function update(dt){
  if(over){overT+=dt; return;}
  zoom+=(zoomTarget-zoom)*Math.min(1,dt*8);
+ P.recoil=Math.max(0,P.recoil-dt*8);
+ // JOY DROIT = VISEUR
  if(joyR.active){
   const jr=Math.hypot(joyR.dx,joyR.dy);
-  if(jr>0.15){const len=120; aim={x:P.x+(joyR.dx/jr)*len, y:P.y+(joyR.dy/jr)*len};}
+  if(jr>0.18){
+   const len=90 + jr*90; // plus tu pousses, plus le viseur est loin
+   aim={x:P.x+(joyR.dx/jr)*len, y:P.y+(joyR.dy/jr)*len};
+   if(jr>0.5) firing=true; // auto-tir si stick poussé à fond
+  }
+ } else {
+  // si joystick droit relâché, viseur suit la dernière direction mais ne tire plus auto
+  if(firing && tid===null && !keys[' ']) {
+   // on garde le tir seulement si bouton ⚡ ou espace
+  }
  }
  let mx=0,my=0,sp=140;
  if(keys.ArrowLeft||keys.q||keys.a) mx--;
@@ -128,7 +141,7 @@ function bar(x,y,w,h,pct){
 function drawPlayer(){
  const a=Math.atan2(aim.y-P.y,aim.x-P.x);
  const dir=Math.abs(a)<0.785?0:Math.abs(a)>2.356?2:a>0?1:3;
- const bob=Math.sin(P.anim)*1.5;
+ const bob=Math.sin(P.anim)*1.5 - P.recoil*6;
  shadow(P.x,P.y);
  ctx.save(); ctx.translate(P.x,P.y+bob);
  if(ok(player)){const w=player.width/4; ctx.drawImage(player,dir*w,0,w,player.height,-24,-24,48,48);}
@@ -136,6 +149,44 @@ function drawPlayer(){
  ctx.rotate(a); ctx.lineCap='round'; ctx.lineWidth=2.5; ctx.strokeStyle='#ffb347';
  ctx.beginPath(); ctx.arc(-2,0,20,-1.1,1.1); ctx.stroke();
  ctx.lineWidth=1; ctx.strokeStyle='#fff'; ctx.beginPath(); ctx.moveTo(8,-18); ctx.lineTo(P.shoot>0?-6:8,0); ctx.lineTo(8,18); ctx.stroke();
+ ctx.restore();
+}
+function drawCrosshair(x,y){
+ const jr = joyR.active ? Math.hypot(joyR.dx,joyR.dy) : 0;
+ const spread = 8 + jr*14 + P.recoil*30;
+ // laser mitraillette
+ ctx.save();
+ ctx.globalAlpha=0.25;
+ ctx.strokeStyle='#ff3cac'; ctx.lineWidth=1;
+ ctx.setLineDash([6,6]);
+ ctx.beginPath(); ctx.moveTo(P.x,P.y); ctx.lineTo(x,y); ctx.stroke();
+ ctx.setLineDash([]);
+ ctx.globalAlpha=1;
+ // cercle externe
+ ctx.strokeStyle= jr>0.5 ? '#ff3c3c' : '#1de9b6';
+ ctx.lineWidth=1.5;
+ ctx.beginPath(); ctx.arc(x,y,12+spread*0.3,0,7); ctx.stroke();
+ // croix mitraillette
+ ctx.strokeStyle='rgba(255,255,255,.9)';
+ ctx.lineWidth=2;
+ ctx.beginPath();
+ ctx.moveTo(x-spread-8,y); ctx.lineTo(x-spread,y);
+ ctx.moveTo(x+spread,y); ctx.lineTo(x+spread+8,y);
+ ctx.moveTo(x,y-spread-8); ctx.lineTo(x,y-spread);
+ ctx.moveTo(x,y+spread); ctx.lineTo(x,y+spread+8);
+ ctx.stroke();
+ // point central
+ ctx.fillStyle= jr>0.5 ? '#ff3c3c' : '#fff';
+ ctx.beginPath(); ctx.arc(x,y,2.5,0,7); ctx.fill();
+ // viseur verrouillage ennemi proche
+ let closest=null, cd=999;
+ for(const e of E){const d=dist({x,y},e); if(d<cd && d<60){cd=d; closest=e;}}
+ if(closest){
+  ctx.strokeStyle='#ff3c3c'; ctx.lineWidth=1.5;
+  ctx.strokeRect(closest.x-16,closest.y-20,32,32);
+  ctx.fillStyle='#ff3c3c'; ctx.font='bold 8px monospace'; ctx.textAlign='center';
+  ctx.fillText('LOCK',closest.x,closest.y-24);
+ }
  ctx.restore();
 }
 function draw(now){
@@ -159,90 +210,11 @@ function draw(now){
  for(const a of A){ctx.save(); ctx.translate(a.x,a.y); ctx.rotate(a.angle); ctx.fillStyle=a.explosive?'#ff7b00':'#1de9b6'; ctx.fillRect(-12,-1,16,2); ctx.fillStyle=a.explosive?'#ff3cac':'#fff'; ctx.fillRect(4,-3,5,6); ctx.restore();}
  for(const f of F){const k=f.t/0.4; ctx.globalAlpha=1-k; ctx.fillStyle='#ff7b00'; ctx.beginPath(); ctx.arc(f.x,f.y,AOE*k,0,7); ctx.fill(); ctx.strokeStyle='#ffe14d'; ctx.lineWidth=2; ctx.stroke(); ctx.globalAlpha=1;}
  if(flash>0){ctx.fillStyle='rgba(255,255,255,.15)'; ctx.fillRect(0,0,W,H);}
- ctx.fillStyle='rgba(255,255,255,.4)'; ctx.fillRect(aim.x-5,aim.y-1,10,2); ctx.fillRect(aim.x-1,aim.y-5,2,10);
+ drawCrosshair(aim.x,aim.y);
  ctx.restore();
+
  ctx.font='bold 13px monospace'; ctx.textAlign='center';
  for(const t of T){ctx.globalAlpha=Math.min(1,t.t*2); ctx.fillStyle=t.c; ctx.fillText(t.s,t.x,t.y);}
  ctx.globalAlpha=1;
- {const jb=joyPos(); const show=joy.active; ctx.globalAlpha=show?0.85:0.35; ctx.beginPath(); ctx.arc(jb.x,jb.y,JOY.r,0,7); ctx.fillStyle='rgba(20,10,40,.4)'; ctx.fill(); ctx.lineWidth=2; ctx.strokeStyle='#1de9b6'; ctx.stroke(); const kx=jb.x+joy.dx*(JOY.r-JOY.knob); const ky=jb.y+joy.dy*(JOY.r-JOY.knob); ctx.beginPath(); ctx.arc(kx,ky,JOY.knob,0,7); ctx.fillStyle=show?'#1de9b6':'rgba(29,233,182,.6)'; ctx.fill(); ctx.globalAlpha=1;}
- {const jb=joyRPos(); const show=joyR.active; ctx.globalAlpha=show?0.85:0.35; ctx.beginPath(); ctx.arc(jb.x,jb.y,JOYR.r,0,7); ctx.fillStyle='rgba(20,10,40,.4)'; ctx.fill(); ctx.lineWidth=2; ctx.strokeStyle='#ff3cac'; ctx.stroke(); const kx=jb.x+joyR.dx*(JOYR.r-JOYR.knob); const ky=jb.y+joyR.dy*(JOYR.r-JOYR.knob); ctx.beginPath(); ctx.arc(kx,ky,JOYR.knob,0,7); ctx.fillStyle=show?'#ff3cac':'rgba(255,60,172,.6)'; ctx.fill(); ctx.globalAlpha=1;}
- {const fb=fireBtnPos(); ctx.globalAlpha=firing?0.95:0.5; ctx.beginPath(); ctx.arc(fb.x,fb.y,FIRE.r,0,7); ctx.fillStyle='rgba(255,123,0,.25)'; ctx.fill(); ctx.lineWidth=2; ctx.strokeStyle='#ff7b00'; ctx.stroke(); ctx.fillStyle='#ff7b00'; ctx.font='bold 18px monospace'; ctx.textAlign='center'; ctx.fillText('⚡',fb.x,fb.y+6); ctx.globalAlpha=1;}
- for(const z of zoomBtns){ctx.fillStyle='rgba(20,10,40,.85)'; ctx.fillRect(z.x,z.y,z.w,z.h); ctx.strokeStyle='#1de9b6'; ctx.lineWidth=2; ctx.strokeRect(z.x,z.y,z.w,z.h); ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.font='bold 20px monospace'; ctx.fillText(z.t,z.x+z.w/2,z.y+z.h/2+6);}
- bar(10,10,160,10,P.hp/P.max); ctx.textAlign='left'; ctx.fillStyle='#fff'; ctx.font='bold 10px monospace'; ctx.fillText('HP '+P.hp,14,18);
- ctx.font='bold 12px monospace'; ctx.fillStyle='#3cf'; ctx.fillText('FISH '+fish,10,36); ctx.fillStyle='#ffe14d'; ctx.fillText('ARR '+arrows,70,36); ctx.fillStyle='#ff7b00'; ctx.fillText('EXPL '+expl,130,36);
- ctx.fillStyle='#ff3cac'; ctx.font='bold 14px monospace'; ctx.fillText('SCORE '+score,10,52);
- if(over){ctx.fillStyle='rgba(0,0,0,.75)'; ctx.fillRect(0,0,W,H); ctx.textAlign='center'; ctx.fillStyle='#ff3cac'; ctx.font='bold 32px monospace'; ctx.fillText('GAME OVER',W/2,H/2-10); ctx.fillStyle='#fff'; ctx.font='bold 16px monospace'; ctx.fillText('Score '+score,W/2,H/2+18); if(overT>0.6) ctx.fillText('Tap = rejouer',W/2,H/2+42);}
-}
-const xy=e=>{
- const r=canvas.getBoundingClientRect();
- const sx=(e.clientX-r.left)*W/r.width;
- const sy=(e.clientY-r.top)*H/r.height;
- const wx=(sx-W/2)/zoom+W/2;
- const wy=(sy-H/2)/zoom+H/2;
- return {sx,sy,x:wx,y:wy};
-};
-const pressZoom=p=>{
- for(const z of zoomBtns) if(p.sx>z.x&&p.sx<z.x+z.w&&p.sy>z.y&&p.sy<z.y+z.h){
-  zoomTarget=Math.max(ZOOM_MIN,Math.min(ZOOM_MAX,zoomTarget+z.sign*0.15));
-  return true;
- } return false;
-};
-const inJoy=p=>{const jb=joyPos(); return Math.hypot(p.sx-jb.x,p.sy-jb.y)<JOY.r*1.5;};
-const inJoyR=p=>{const jb=joyRPos(); return Math.hypot(p.sx-jb.x,p.sy-jb.y)<JOYR.r*1.5;};
-const inFire=p=>{const fb=fireBtnPos(); return Math.hypot(p.sx-fb.x,p.sy-fb.y)<FIRE.r*1.5;};
-const restart=()=>{if(over&&overT>0.6){reset(); return true;} return false;};
-const key=e=>e.key.length>1?e.key:e.key.toLowerCase();
-addEventListener('keydown',e=>{
- if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault();
- const k=key(e); keys[k]=true;
- if(k==' '&&!restart()) firing=true;
- if(k=='e') shoot(true);
- if(k=='c') craftExplosive();
- if(k=='+'||k=='=') zoomTarget=Math.min(ZOOM_MAX,zoomTarget+0.15);
- if(k=='-'||k=='_') zoomTarget=Math.max(ZOOM_MIN,zoomTarget-0.15);
-});
-addEventListener('keyup',e=>{const k=key(e); keys[k]=false; if(k==' ') firing=false;});
-canvas.addEventListener('mousemove',e=>{if(!joy.active&&!joyR.active) aim=xy(e);});
-canvas.addEventListener('mousedown',e=>{const p=xy(e); aim=p; if(pressZoom(p)||restart()) return; firing=true;});
-addEventListener('mouseup',()=>{firing=false;});
-canvas.addEventListener('wheel',e=>{e.preventDefault(); zoomTarget=Math.max(ZOOM_MIN,Math.min(ZOOM_MAX,zoomTarget+(e.deltaY<0?0.1:-0.1)));},{passive:false});
-canvas.addEventListener('touchstart',e=>{
- e.preventDefault();
- if(e.touches.length>=2) return;
- for(const t of e.changedTouches){
-  const p=xy(t);
-  if(pressZoom(p)||restart()) continue;
-  if(!joy.active&&inJoy(p)){joy.active=true; joy.id=t.identifier; joy.dx=0; joy.dy=0; continue;}
-  if(!joyR.active&&inJoyR(p)){joyR.active=true; joyR.id=t.identifier; joyR.dx=0; joyR.dy=0; continue;}
-  if(inFire(p)){firing=true; continue;}
-  tid=t.identifier; touch=aim=p; firing=true;
- }
-},{passive:false});
-canvas.addEventListener('touchmove',e=>{
- e.preventDefault();
- if(e.touches.length>=2) return;
- for(const t of e.touches){
-  const p=xy(t);
-  if(joy.active&&t.identifier===joy.id){const jb=joyPos(); let dx=p.sx-jb.x,dy=p.sy-jb.y; const len=Math.hypot(dx,dy); const max=JOY.r-JOY.knob; if(len>max){dx=dx/len*max; dy=dy/len*max;} joy.dx=dx/max; joy.dy=dy/max; continue;}
-  if(joyR.active&&t.identifier===joyR.id){const jb=joyRPos(); let dx=p.sx-jb.x,dy=p.sy-jb.y; const len=Math.hypot(dx,dy); const max=JOYR.r-JOYR.knob; if(len>max){dx=dx/len*max; dy=dy/len*max;} joyR.dx=dx/max; joyR.dy=dy/max; continue;}
-  if(t.identifier===tid){touch=aim=p;}
- }
-},{passive:false});
-canvas.addEventListener('touchend',e=>{
- e.preventDefault();
- for(const t of e.changedTouches){
-  if(joy.active&&t.identifier===joy.id){joy.active=false; joy.id=null; joy.dx=0; joy.dy=0;}
-  if(joyR.active&&t.identifier===joyR.id){joyR.active=false; joyR.id=null; joyR.dx=0; joyR.dy=0;}
-  if(t.identifier===tid){tid=null; touch=null; firing=false;}
- }
- const fb=fireBtnPos(); let stillFire=false;
- for(const t of e.touches){const p=xy(t); if(Math.hypot(p.sx-fb.x,p.sy-fb.y)<FIRE.r*1.5) stillFire=true;}
- if(!stillFire&&tid===null) firing=false;
-});
-addEventListener('resize',fit);
-fit(); reset();
-(function loop(t){
- requestAnimationFrame(loop);
- const dt=Math.min(0.033,(t-last)/1000||0); last=t;
- update(dt); draw(t);
-})(0);
+
+ {const jb=joyPos(); const show=joy.active; ctx.globalAlpha=show?0.85:0.35; ctx.beginPath(); ctx.arc(jb.x,jb.y,JOY.r,0,7); ctx.fillStyle='rgba(20,10,40,.4)'; ctx.fill(); ctx.lineWidth=2; ctx.strokeStyle='#1de9b6'; ctx.stroke(); const kx=jb.x+joy.dx*(JOY.r-JOY.knob); const ky=jb.y+joy.dy*(JOY.r-JOY.knob); ctx.beginPath(); ctx.arc(kx,ky,JOY.knob,0,7); ctx.fillStyle=show?'#1de9b6':'rgba(29,233,182,.6)'; ctx.fill(); ctx.globalAlpha=1; ctx.fillStyle='#1de9b6'; ctx.font='bold 9px monospace'; ctx.textAlign='
