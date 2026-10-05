@@ -1,4 +1,3 @@
-// CORE c142b7a STABLE - NE PLUS TOUCHER
 const canvas = document.getElementById('c'), ctx = canvas.getContext('2d');
 const ld = s => { const i = new Image(); i.src = s + '?v=' + Date.now(); return i; };
 const player = ld('player.png'), enemies = ld('enemies.png');
@@ -43,14 +42,15 @@ function reset(){
  E=[]; A=[]; D=[]; F=[]; T=[];
  arrows=99; fish=0; expl=6; score=0; spawnT=1.2; regenT=0;
  over=false; overT=0; firing=false; tid=null; touch=null; flash=0;
- aim={x:W/2+60,y:H/2};
+ GameAPI._aimAng=0;
+ aim={x:W/2+65,y:H/2};
  joy.active=false; joy.id=null; joy.dx=0; joy.dy=0;
  joyR.active=false; joyR.id=null; joyR.dx=0; joyR.dy=0;
 }
 function shoot(explosive){
  if(P.cd>0||over) return;
  if(explosive){if(expl<1) return; expl--;} else {if(arrows<1) return; arrows--;}
- const angle=Math.atan2(aim.y-P.y,aim.x-P.x);
+ const angle=GameAPI._aimAng;
  A.push({x:P.x,y:P.y-4,angle,speed:explosive?400:580,explosive,life:1.5});
  P.cd=explosive?0.5:0.18; P.shoot=0.12;
 }
@@ -76,11 +76,16 @@ function spawn(){
 }
 function update(dt){
  if(over){overT+=dt; return;}
- zoom+=(zoomTarget-zoom)*Math.min(1,dt*8);
+
+ // --- VISEUR LOCKÉ : toujours autour du joueur ---
  if(joyR.active){
   const jr=Math.hypot(joyR.dx,joyR.dy);
-  if(jr>0.15){const len=120; aim={x:P.x+(joyR.dx/jr)*len, y:P.y+(joyR.dy/jr)*len};}
+  if(jr>0.15) GameAPI._aimAng=Math.atan2(joyR.dy,joyR.dx);
  }
+ aim.x = P.x + Math.cos(GameAPI._aimAng)*65;
+ aim.y = P.y + Math.sin(GameAPI._aimAng)*65;
+
+ zoom+=(zoomTarget-zoom)*Math.min(1,dt*8);
  let mx=0,my=0,sp=140;
  if(keys.ArrowLeft||keys.q||keys.a) mx--;
  if(keys.ArrowRight||keys.d) mx++;
@@ -112,8 +117,8 @@ function update(dt){
  for(const a of A){
   a.x+=Math.cos(a.angle)*a.speed*dt; a.y+=Math.sin(a.angle)*a.speed*dt; a.life-=dt;
   let hit=false;
-  for(const e of E) if(!e.dead && dist(a,e)<22){if(a.explosive){ if(window.GameAPI.doLightning) GameAPI.doLightning(a.x,a.y); else explode(a.x,a.y);} else hurt(e,12); hit=true; break;}
-  if(!hit && a.explosive && a.life<=0){if(window.GameAPI.doLightning) GameAPI.doLightning(a.x,a.y); else explode(a.x,a.y); hit=true;}
+  for(const e of E) if(!e.dead && dist(a,e)<22){if(a.explosive){ if(GameAPI.doLightning) GameAPI.doLightning(a.x,a.y); else explode(a.x,a.y);} else hurt(e,12); hit=true; break;}
+  if(!hit && a.explosive && a.life<=0){if(GameAPI.doLightning) GameAPI.doLightning(a.x,a.y); else explode(a.x,a.y); hit=true;}
   if(hit||a.life<=0||a.x<-20||a.x>W+20||a.y<-20||a.y>H+20) a.dead=true;
  }
  for(const d of D){d.t-=dt; if(dist(d,P)<28){d.t=0; if(d.k=='fish'){fish++; P.hp=Math.min(P.max,P.hp+15); text(d.x,d.y-10,'+15 HP','#3cf');} else {arrows=Math.min(99,arrows+5); text(d.x,d.y-10,'+5 ARR','#ffe14d');}}}
@@ -128,14 +133,14 @@ function bar(x,y,w,h,pct){
  ctx.strokeStyle='rgba(255,255,255,.3)'; ctx.lineWidth=1; ctx.strokeRect(x,y,w,h);
 }
 function drawPlayer(){
- const a=Math.atan2(aim.y-P.y,aim.x-P.x);
- const dir=Math.abs(a)<0.785?0:Math.abs(a)>2.356?2:a>0?1:3;
+ const dir=Math.abs(GameAPI._aimAng)<0.785?0:Math.abs(GameAPI._aimAng)>2.356?2:GameAPI._aimAng>0?1:3;
  const bob=Math.sin(P.anim)*1.5;
  shadow(P.x,P.y);
  ctx.save(); ctx.translate(P.x,P.y+bob);
+ if(P.hit>0 && ((Date.now()/80)|0)%2){ctx.globalAlpha=0.4;}
  if(ok(player)){const w=player.width/4; ctx.drawImage(player,dir*w,0,w,player.height,-24,-24,48,48);}
  else {ctx.fillStyle='#1de9b6'; ctx.beginPath(); ctx.arc(0,0,16,0,7); ctx.fill();}
- ctx.rotate(a); ctx.lineCap='round'; ctx.lineWidth=2.5; ctx.strokeStyle='#ffb347';
+ ctx.rotate(GameAPI._aimAng); ctx.lineCap='round'; ctx.lineWidth=2.5; ctx.strokeStyle='#ffb347';
  ctx.beginPath(); ctx.arc(-2,0,20,-1.1,1.1); ctx.stroke();
  ctx.lineWidth=1; ctx.strokeStyle='#fff'; ctx.beginPath(); ctx.moveTo(8,-18); ctx.lineTo(P.shoot>0?-6:8,0); ctx.lineTo(8,18); ctx.stroke();
  ctx.restore();
@@ -161,9 +166,8 @@ function draw(now){
  for(const a of A){ctx.save(); ctx.translate(a.x,a.y); ctx.rotate(a.angle); ctx.fillStyle=a.explosive?'#ff7b00':'#1de9b6'; ctx.fillRect(-12,-1,16,2); ctx.fillStyle=a.explosive?'#ff3cac':'#fff'; ctx.fillRect(4,-3,5,6); ctx.restore();}
  for(const f of F){const k=f.t/0.4; ctx.globalAlpha=1-k; ctx.fillStyle='#ff7b00'; ctx.beginPath(); ctx.arc(f.x,f.y,AOE*k,0,7); ctx.fill(); ctx.strokeStyle='#ffe14d'; ctx.lineWidth=2; ctx.stroke(); ctx.globalAlpha=1;}
  if(flash>0){ctx.fillStyle='rgba(255,255,255,.15)'; ctx.fillRect(0,0,W,H);}
- if(window.GameAPI.drawCrosshair) GameAPI.drawCrosshair(aim.x,aim.y);
- else { ctx.fillStyle='rgba(255,255,255,.4)'; ctx.fillRect(aim.x-5,aim.y-1,10,2); ctx.fillRect(aim.x-1,aim.y-5,2,10); }
- if(window.GameAPI.drawFx) GameAPI.drawFx();
+ if(GameAPI.drawCrosshair) GameAPI.drawCrosshair(aim.x,aim.y);
+ if(GameAPI.drawFx) GameAPI.drawFx();
  ctx.restore();
  ctx.font='bold 13px monospace'; ctx.textAlign='center';
  for(const t of T){ctx.globalAlpha=Math.min(1,t.t*2); ctx.fillStyle=t.c; ctx.fillText(t.s,t.x,t.y);}
@@ -198,23 +202,25 @@ const inFire=p=>{const fb=fireBtnPos(); return Math.hypot(p.sx-fb.x,p.sy-fb.y)<F
 const inBolt=p=>{const bb=boltBtnPos(); return Math.hypot(p.sx-bb.x,p.sy-bb.y)<BOLT.r*1.5;};
 const restart=()=>{if(over&&overT>0.6){reset(); return true;} return false;};
 const key=e=>e.key.length>1?e.key:e.key.toLowerCase();
-const craftExplosive=()=>{};
 addEventListener('keydown',e=>{
  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault();
  const k=key(e); keys[k]=true;
  if(k==' '&&!restart()) firing=true;
  if(k=='e') shoot(true);
- if(k=='f' && window.GameAPI.doLightning) GameAPI.doLightning(aim.x,aim.y);
- if(k=='c') craftExplosive();
+ if(k=='f' && GameAPI.doLightning) GameAPI.doLightning(aim.x,aim.y);
  if(k=='+'||k=='=') zoomTarget=Math.min(ZOOM_MAX,zoomTarget+0.15);
  if(k=='-'||k=='_') zoomTarget=Math.max(ZOOM_MIN,zoomTarget-0.15);
+ if(k=='ArrowLeft'||k=='ArrowRight'||k=='ArrowUp'||k=='ArrowDown'){
+   const map={ArrowLeft:Math.PI,ArrowRight:0,ArrowUp:-Math.PI/2,ArrowDown:Math.PI/2};
+   if(map[e.key]!=null) GameAPI._aimAng=map[e.key];
+ }
 });
 addEventListener('keyup',e=>{const k=key(e); keys[k]=false; if(k==' ') firing=false;});
-canvas.addEventListener('mousemove',e=>{if(!joy.active&&!joyR.active) aim=xy(e);});
+canvas.addEventListener('mousemove',e=>{ if(!joy.active&&!joyR.active){ const p=xy(e); GameAPI._aimAng=Math.atan2(p.y-P.y,p.x-P.x);} });
 canvas.addEventListener('mousedown',e=>{
- const p=xy(e); aim=p;
+ const p=xy(e);
  if(pressZoom(p)) return;
- if(inBolt(p) && window.GameAPI.doLightning){ GameAPI.doLightning(p.x,p.y); return; }
+ if(inBolt(p) && GameAPI.doLightning){ GameAPI.doLightning(aim.x,aim.y); return; }
  if(restart()) return; firing=true;
 });
 addEventListener('mouseup',()=>{firing=false;});
@@ -225,12 +231,12 @@ canvas.addEventListener('touchstart',e=>{
  for(const t of e.changedTouches){
   const p=xy(t);
   if(pressZoom(p)) continue;
-  if(inBolt(p) && window.GameAPI.doLightning){ GameAPI.doLightning(p.x,p.y); continue; }
+  if(inBolt(p) && GameAPI.doLightning){ GameAPI.doLightning(aim.x,aim.y); continue; }
   if(restart()) continue;
   if(!joy.active&&inJoy(p)){joy.active=true; joy.id=t.identifier; joy.dx=0; joy.dy=0; continue;}
   if(!joyR.active&&inJoyR(p)){joyR.active=true; joyR.id=t.identifier; joyR.dx=0; joyR.dy=0; continue;}
   if(inFire(p)){firing=true; continue;}
-  tid=t.identifier; touch=aim=p; firing=true;
+  tid=t.identifier; touch=p; firing=true;
  }
 },{passive:false});
 canvas.addEventListener('touchmove',e=>{
@@ -240,7 +246,7 @@ canvas.addEventListener('touchmove',e=>{
   const p=xy(t);
   if(joy.active&&t.identifier===joy.id){const jb=joyPos(); let dx=p.sx-jb.x,dy=p.sy-jb.y; const len=Math.hypot(dx,dy); const max=JOY.r-JOY.knob; if(len>max){dx=dx/len*max; dy=dy/len*max;} joy.dx=dx/max; joy.dy=dy/max; continue;}
   if(joyR.active&&t.identifier===joyR.id){const jb=joyRPos(); let dx=p.sx-jb.x,dy=p.sy-jb.y; const len=Math.hypot(dx,dy); const max=JOYR.r-JOYR.knob; if(len>max){dx=dx/len*max; dy=dy/len*max;} joyR.dx=dx/max; joyR.dy=dy/max; continue;}
-  if(t.identifier===tid){touch=aim=p;}
+  if(t.identifier===tid){touch=p;}
  }
 },{passive:false});
 canvas.addEventListener('touchend',e=>{
@@ -262,6 +268,3 @@ fit(); reset();
  try{ update(dt); }catch(e){ logErr('CORE_UPDATE',e); }
  try{ draw(t); }catch(e){ logErr('CORE_DRAW',e); }
 })(0);
-
-// HOOKS API
-window.GameAPI.state = ()=>({P,E,arrows,expl,score});
