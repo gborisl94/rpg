@@ -14,7 +14,7 @@ function doLightning(x,y){
   let bolts=[]; let prev={x:x,y:y-130};
   for(const e of hits){ hurt(e,28); bolts.push(makeBolt(prev.x,prev.y,e.x,e.y)); prev=e; }
   if(hits.length===0) bolts.push(makeBolt(x,y-130,x,y));
-  LB.push({t:0, bolts, x,y});
+  LB.push({t:0, bolts});
   for(const e of E) if(!e.dead && dist({x,y},e)<110) hurt(e,10);
   text(x,y-18,'FOUDRE!','#7df9ff');
  }catch(e){ logErr('FOUDRE_DO',e); }
@@ -32,9 +32,7 @@ GameAPI.drawFx = function(){
   ctx.globalAlpha=1;
  }catch(e){ logErr('FOUDRE_DRAW',e); }
 };
-// update timer foudre
 let _u = update;
 update = function(dt){ _u(dt); for(const b of LB) b.t+=dt; LB=LB.filter(b=>b.t<0.35); };
-console.log('foudre OK');
 })();
 }catch(e){ logErr('ABILITIES',e); }
