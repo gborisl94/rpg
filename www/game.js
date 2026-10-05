@@ -524,4 +524,40 @@ canvas.addEventListener('touchstart', e => {
       joyR.dx = 0; joyR.dy = 0;
       continue;
     }
-    // bouton FE
+    // bouton FEU
+    if (inFire(p)) {
+      firing = true;
+      continue;
+    }
+    // sinon : tap direct → vise + tire
+    tid = t.identifier; touch = aim = p; firing = true;
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  // pinch zoom
+  if (e.touches.length === 2 && pinchStart) {
+    const a = xy(e.touches[0]), b = xy(e.touches[1]);
+    const d = Math.hypot(a.sx - b.sx, a.sy - b.sy);
+    zoomTarget = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, pinchStart.zoom * (d / pinchStart.dist)));
+    return;
+  }
+  for (const t of e.touches) {
+    const p = xy(t);
+    // joystick gauche
+    if (joy.active && t.identifier === joy.id) {
+      const jb = joyPos();
+      let dx = p.sx - jb.x, dy = p.sy - jb.y;
+      const len = Math.hypot(dx, dy);
+      const max = JOY.r - JOY.knob;
+      if (len > max) { dx = dx / len * max; dy = dy / len * max; }
+      joy.dx = dx / max; joy.dy = dy / max;
+      continue;
+    }
+    // joystick droit (visée)
+    if (joyR.active && t.identifier === joyR.id) {
+      const jb = joyRPos();
+      let dx = p.sx - jb.x, dy = p.sy - jb.y;
+      const len = Math.hypot(dx, dy);
+      const max = J
