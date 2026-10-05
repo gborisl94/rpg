@@ -560,4 +560,42 @@ canvas.addEventListener('touchmove', e => {
       const jb = joyRPos();
       let dx = p.sx - jb.x, dy = p.sy - jb.y;
       const len = Math.hypot(dx, dy);
-      const max = J
+      const max = JOYR.r - JOYR.knob;
+      if (len > max) { dx = dx / len * max; dy = dy / len * max; }
+      joyR.dx = dx / max; joyR.dy = dy / max;
+      continue;
+    }
+    // tap direct : vise
+    if (t.identifier === tid) touch = aim = p;
+  }
+}, { passive: false });
+
+const tend = e => {
+  if (e.touches.length < 2) pinchStart = null;
+  for (const t of e.changedTouches) {
+    if (joy.active  && t.identifier === joy.id)  { joy.active = false;  joy.id = null;  joy.dx = 0;  joy.dy = 0; }
+    if (joyR.active && t.identifier === joyR.id) { joyR.active = false; joyR.id = null; joyR.dx = 0; joyR.dy = 0; }
+    if (t.identifier === tid) { tid = null; touch = null; firing = false; }
+  }
+};
+canvas.addEventListener('touchend', tend);
+canvas.addEventListener('touchcancel', tend);
+addEventListener('resize', fit);
+
+// ---------- boucle 60 FPS ----------
+fit(); reset();
+function loop(now) {
+  requestAnimationFrame(loop);
+  try {
+    const dt = Math.min(0.05, (now - last) / 1000 || 0);
+    last = now;
+    update(dt);
+    draw(now);
+  } catch (e) {
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, 22);
+    ctx.fillStyle = '#f55'; ctx.font = '11px monospace'; ctx.textAlign = 'left';
+    ctx.fillText('ERR ' + (e && e.message), 4, 15);
+  }
+}
+requestAnimationFrame(loop);
