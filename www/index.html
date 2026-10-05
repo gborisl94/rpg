@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Indie Miami x Grim Dawn Archer</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: #0b1a3a;
+    touch-action: none;
+    -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none;
+  }
+  canvas {
+    position: fixed; left: 0; top: 0;
+    width: 100vw; height: 100vh;
+    display: block;
+    background: #0b1a3a;
+    touch-action: none;
+  }
+  #rotate {
+    display: none;
+    position: fixed; left: 0; top: 0; width: 100%; height: 100%;
+    z-index: 10;
+    background: #2a0a4a;
+    color: #ff3cac;
+    font-family: monospace; font-weight: bold; font-size: 22px;
+    text-align: center;
+    align-items: center; justify-content: center;
+    flex-direction: column;
+  }
+  #rotate span { color: #1de9b6; font-size: 48px; margin-bottom: 12px; }
+  @media screen and (orientation: portrait) {
+    #rotate { display: flex; }
+  }
+</style>
+</head>
+<body>
+<canvas id="c" width="640" height="360"></canvas>
+<div id="rotate"><span>&#8635;</span>Tourne ton téléphone</div>
+<script src="game.js"></script>
+</body>
+</html>
