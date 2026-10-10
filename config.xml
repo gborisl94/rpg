@@ -1,0 +1,28 @@
+<?xml version='1.0' encoding='utf-8'?>
+<widget id="com.gborisl94.rpg" version="1.0.0"
+        xmlns="http://www.w3.org/ns/widgets"
+        xmlns:cdv="http://cordova.apache.org/ns/1.0">
+    <name>Indie Miami Archer</name>
+    <description>Archer top-down arcade</description>
+    <author email="you@example.com" href="#">gborisl94</author>
+
+    <content src="index.html" />
+
+    <!-- Forcer le mode paysage -->
+    <preference name="Orientation" value="landscape" />
+    <preference name="Fullscreen" value="true" />
+
+    <!-- Android -->
+    <platform name="android">
+        <preference name="android-minSdkVersion" value="22" />
+        <preference name="android-targetSdkVersion" value="34" />
+        <preference name="android-compileSdkVersion" value="34" />
+        <preference name="AndroidInsecureFileModeEnabled" value="true" />
+    </platform>
+
+    <!-- Sécurité réseau -->
+    <allow-navigation href="*" />
+    <allow-intent href="http://*/*" />
+    <allow-intent href="https://*/*" />
+    <access origin="*" />
+</widget>
